@@ -1,7 +1,7 @@
-import com.jsuereth.sbtpgp.PgpKeys.{pgpPublicRing, pgpSecretRing}
+import com.jsuereth.sbtpgp.PgpKeys.{ pgpPublicRing, pgpSecretRing }
 import microsites.ConfigYml
-import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
-import scala.xml.transform.{RewriteRule, RuleTransformer}
+import scala.xml.{ Node => XmlNode, NodeSeq => XmlNodeSeq, _ }
+import scala.xml.transform.{ RewriteRule, RuleTransformer }
 
 enablePlugins(Common, ZioAwsCodegenPlugin, GitVersioning)
 
@@ -23,15 +23,15 @@ lazy val root = Project("zio-aws", file(".")).settings(
 lazy val core = Project("zio-aws-core", file("zio-aws-core"))
   .settings(
     libraryDependencies ++= Seq(
-      "software.amazon.awssdk" % "aws-core" % awsVersion,
-      "dev.zio" %% "zio" % zioVersion,
-      "dev.zio" %% "zio-streams" % zioVersion,
-      "dev.zio" %% "zio-interop-reactivestreams" % zioReactiveStreamsInteropVersion,
-      "dev.zio" %% "zio-config" % zioConfigVersion,
-      "org.scala-lang.modules" %% "scala-collection-compat" % "2.3.1",
-      "dev.zio" %% "zio-test" % zioVersion % "test",
-      "dev.zio" %% "zio-test-sbt" % zioVersion % "test",
-      "dev.zio" %% "zio-config-typesafe" % zioConfigVersion % "test"
+      "software.amazon.awssdk" % "aws-core"                     % awsVersion,
+      "dev.zio"                %% "zio"                         % zioVersion,
+      "dev.zio"                %% "zio-streams"                 % zioVersion,
+      "dev.zio"                %% "zio-interop-reactivestreams" % zioReactiveStreamsInteropVersion,
+      "dev.zio"                %% "zio-config-magnolia"         % zioConfigVersion,
+      "org.scala-lang.modules" %% "scala-collection-compat"     % "2.3.1",
+      "dev.zio"                %% "zio-test"                    % zioVersion % "test",
+      "dev.zio"                %% "zio-test-sbt"                % zioVersion % "test",
+      "dev.zio"                %% "zio-config-typesafe"         % zioConfigVersion % "test"
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
@@ -39,15 +39,15 @@ lazy val core = Project("zio-aws-core", file("zio-aws-core"))
 lazy val http4s = Project("zio-aws-http4s", file("zio-aws-http4s"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-dsl" % http4sVersion,
-      "org.http4s" %% "http4s-blaze-client" % http4sVersion,
-      "software.amazon.awssdk" % "http-client-spi" % awsVersion,
-      "dev.zio" %% "zio" % zioVersion,
-      "dev.zio" %% "zio-interop-cats" % zioCatsInteropVersion,
-      "dev.zio" %% "zio-config" % zioConfigVersion,
-      "co.fs2" %% "fs2-reactive-streams" % fs2Version,
-      "org.typelevel" %% "cats-effect" % catsEffectVersion,
-      "org.scala-lang.modules" %% "scala-java8-compat" % "0.9.1"
+      "org.http4s"             %% "http4s-dsl"           % http4sVersion,
+      "org.http4s"             %% "http4s-blaze-client"  % http4sVersion,
+      "software.amazon.awssdk" % "http-client-spi"       % awsVersion,
+      "dev.zio"                %% "zio"                  % zioVersion,
+      "dev.zio"                %% "zio-interop-cats"     % zioCatsInteropVersion,
+      "dev.zio"                %% "zio-config"           % zioConfigVersion,
+      "co.fs2"                 %% "fs2-reactive-streams" % fs2Version,
+      "org.typelevel"          %% "cats-effect"          % catsEffectVersion,
+      "org.scala-lang.modules" %% "scala-java8-compat"   % "0.9.1"
     )
   )
   .dependsOn(core)
@@ -55,8 +55,8 @@ lazy val http4s = Project("zio-aws-http4s", file("zio-aws-http4s"))
 lazy val akkahttp = Project("zio-aws-akka-http", file("zio-aws-akka-http"))
   .settings(
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-stream" % "2.6.10",
-      "com.typesafe.akka" %% "akka-http" % "10.2.1",
+      "com.typesafe.akka"   %% "akka-stream"       % "2.6.10",
+      "com.typesafe.akka"   %% "akka-http"         % "10.2.1",
       "com.github.matsluni" %% "aws-spi-akka-http" % "0.0.10"
     )
   )
@@ -87,8 +87,8 @@ lazy val example2 = Project("example2", file("examples") / "example2")
   .settings(
     resolvers += Resolver.jcenterRepo,
     libraryDependencies ++= Seq(
-      "nl.vroste" %% "rezilience" % "0.5.0",
-      "dev.zio" %% "zio-logging" % "0.5.0"
+      "nl.vroste" %% "rezilience"  % "0.5.0",
+      "dev.zio"   %% "zio-logging" % "0.5.0"
     )
   )
   .dependsOn(
@@ -100,12 +100,12 @@ lazy val example2 = Project("example2", file("examples") / "example2")
 lazy val integtests = Project("integtests", file("integtests"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % zioVersion,
-      "dev.zio" %% "zio-test" % zioVersion,
-      "dev.zio" %% "zio-test-sbt" % zioVersion,
-      "org.apache.logging.log4j" % "log4j-1.2-api" % "2.13.3",
-      "org.apache.logging.log4j" % "log4j-core" % "2.13.3",
-      "org.apache.logging.log4j" % "log4j-api" % "2.13.3",
+      "dev.zio"                  %% "zio"             % zioVersion,
+      "dev.zio"                  %% "zio-test"        % zioVersion,
+      "dev.zio"                  %% "zio-test-sbt"    % zioVersion,
+      "org.apache.logging.log4j" % "log4j-1.2-api"    % "2.13.3",
+      "org.apache.logging.log4j" % "log4j-core"       % "2.13.3",
+      "org.apache.logging.log4j" % "log4j-api"        % "2.13.3",
       "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.13.3"
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
@@ -147,7 +147,7 @@ lazy val docs = project
     micrositeHighlightLanguages ++= Seq("scala", "sbt"),
     micrositeConfigYaml := ConfigYml(
       yamlCustomProperties = Map(
-        "url" -> "https://vigoo.github.io",
+        "url"     -> "https://vigoo.github.io",
         "plugins" -> List("jemoji", "jekyll-sitemap")
       )
     ),
@@ -159,10 +159,12 @@ lazy val docs = project
     pomPostProcess := { (node: XmlNode) =>
       new RuleTransformer(new RewriteRule {
         override def transform(node: XmlNode): XmlNodeSeq = node match {
-          case e: Elem if e.label == "dependency" && e.child.exists(child => child.label == "artifactId" && child.text.startsWith("mdoc_")) =>
+          case e: Elem
+              if e.label == "dependency" && e.child
+                .exists(child => child.label == "artifactId" && child.text.startsWith("mdoc_")) =>
             val organization = e.child.filter(_.label == "groupId").flatMap(_.text).mkString
-            val artifact = e.child.filter(_.label == "artifactId").flatMap(_.text).mkString
-            val version = e.child.filter(_.label == "version").flatMap(_.text).mkString
+            val artifact     = e.child.filter(_.label == "artifactId").flatMap(_.text).mkString
+            val version      = e.child.filter(_.label == "version").flatMap(_.text).mkString
             Comment(s"dependency $organization#$artifact;$version has been omitted")
           case _ => node
         }

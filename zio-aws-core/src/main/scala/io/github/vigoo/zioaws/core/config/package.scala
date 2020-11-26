@@ -4,10 +4,7 @@ import java.net.URI
 
 import io.github.vigoo.zioaws.core.httpclient.HttpClient
 import software.amazon.awssdk.auth.credentials._
-import software.amazon.awssdk.awscore.client.builder.{
-  AwsAsyncClientBuilder,
-  AwsClientBuilder
-}
+import software.amazon.awssdk.awscore.client.builder.{ AwsAsyncClientBuilder, AwsClientBuilder }
 import software.amazon.awssdk.awscore.retry.conditions.RetryOnErrorCodeCondition
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration
 import software.amazon.awssdk.core.retry.backoff.{
@@ -17,20 +14,26 @@ import software.amazon.awssdk.core.retry.backoff.{
   FullJitterBackoffStrategy
 }
 import software.amazon.awssdk.core.retry.conditions._
-import software.amazon.awssdk.core.retry.{
-  RetryMode,
-  RetryPolicy,
-  RetryPolicyContext
-}
+import software.amazon.awssdk.core.retry.{ RetryMode, RetryPolicy, RetryPolicyContext }
 import software.amazon.awssdk.regions.Region
 import zio.config.ConfigDescriptor._
 import zio.config._
 import zio.duration._
-import zio.{Has, Task, ZIO, ZLayer}
+import zio.{ Has, Task, ZIO, ZLayer }
 
 import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
+import io.github.vigoo.zioaws.core.config.descriptors.CredentialsProvider.Default
+import io.github.vigoo.zioaws.core.config.descriptors.CredentialsProvider.Anonymous
+import io.github.vigoo.zioaws.core.config.descriptors.CredentialsProvider.StaticProvider
+import io.github.vigoo.zioaws.core.config.descriptors.AwsRetryPolicy.Default
+import io.github.vigoo.zioaws.core.config.descriptors.AwsRetryPolicy.Legacy
+import io.github.vigoo.zioaws.core.config.descriptors.AwsRetryPolicy.NoPolicy
+import io.github.vigoo.zioaws.core.config.descriptors.AwsRetryPolicy.Standard
+import io.github.vigoo.zioaws.core.config.descriptors.AwsRetryMode.Legacy
+import io.github.vigoo.zioaws.core.config.descriptors.AwsRetryMode.Standard
+import io.github.vigoo.zioaws.core.config.descriptors.AwsRetryMode.Default
 
 package object config {
   type AwsConfig = Has[AwsConfig.Service]
@@ -39,12 +42,12 @@ package object config {
 
     trait Service {
       def configure[Client, Builder <: AwsClientBuilder[Builder, Client]](
-          builder: Builder
+        builder: Builder
       ): Task[Builder]
 
       def configureHttpClient[
-          Client,
-          Builder <: AwsAsyncClientBuilder[Builder, Client]
+        Client,
+        Builder <: AwsAsyncClientBuilder[Builder, Client]
       ](builder: Builder): Task[Builder]
     }
 
@@ -56,7 +59,7 @@ package object config {
 
   trait ClientCustomization {
     def customize[Client, Builder <: AwsClientBuilder[Builder, Client]](
-        builder: Builder
+      builder: Builder
     ): Builder
   }
 
@@ -72,7 +75,7 @@ package object config {
   }
 
   def customized(
-      customization: ClientCustomization
+    customization: ClientCustomization
   ): ZLayer[HttpClient, Nothing, AwsConfig] =
     ZLayer.fromService { httpClient =>
       new AwsConfig.Service {
@@ -83,92 +86,86 @@ package object config {
           Task(customization.customize[Client, Builder](builder))
 
         override def configureHttpClient[
-            Client,
-            Builder <: AwsAsyncClientBuilder[Builder, Client]
+          Client,
+          Builder <: AwsAsyncClientBuilder[Builder, Client]
         ](builder: Builder): Task[Builder] =
           ZIO.succeed(builder.httpClient(httpClient.client))
       }
     }
 
   case class CommonClientConfig(
-      extraHeaders: Map[String, List[String]],
-      retryPolicy: Option[RetryPolicy],
-      apiCallTimeout: Option[Duration],
-      apiCallAttemptTimeout: Option[Duration],
-      defaultProfileName: Option[String]
+    extraHeaders: Map[String, List[String]],
+    retryPolicy: Option[RetryPolicy],
+    apiCallTimeout: Option[Duration],
+    apiCallAttemptTimeout: Option[Duration],
+    defaultProfileName: Option[String]
   )
 
   case class CommonAwsConfig(
-      region: Option[Region],
-      credentialsProvider: AwsCredentialsProvider,
-      endpointOverride: Option[URI],
-      commonClientConfig: Option[CommonClientConfig]
+    region: Option[Region],
+    credentialsProvider: AwsCredentialsProvider,
+    endpointOverride: Option[URI],
+    commonClientConfig: Option[CommonClientConfig]
   )
 
-  def configured()
-      : ZLayer[HttpClient with ZConfig[CommonAwsConfig], Nothing, AwsConfig] =
+  def configured(): ZLayer[HttpClient with ZConfig[CommonAwsConfig], Nothing, AwsConfig] =
     ZLayer
-      .fromServices[HttpClient.Service, CommonAwsConfig, AwsConfig.Service] {
-        (httpClient, commonConfig) =>
-          new AwsConfig.Service {
-            override def configure[Client, Builder <: AwsClientBuilder[
-              Builder,
-              Client
-            ]](builder: Builder): Task[Builder] = {
-              val builderHelper: BuilderHelper[Client] = BuilderHelper.apply
-              import builderHelper._
-              Task {
-                val b0 =
-                  builder
-                    .optionallyWith(commonConfig.endpointOverride)(
-                      _.endpointOverride
-                    )
-                    .optionallyWith(commonConfig.region)(_.region)
-                    .credentialsProvider(commonConfig.credentialsProvider)
+      .fromServices[HttpClient.Service, CommonAwsConfig, AwsConfig.Service] { (httpClient, commonConfig) =>
+        new AwsConfig.Service {
+          override def configure[Client, Builder <: AwsClientBuilder[
+            Builder,
+            Client
+          ]](builder: Builder): Task[Builder] = {
+            val builderHelper: BuilderHelper[Client] = BuilderHelper.apply
+            import builderHelper._
+            Task {
+              val b0 =
+                builder
+                  .optionallyWith(commonConfig.endpointOverride)(
+                    _.endpointOverride
+                  )
+                  .optionallyWith(commonConfig.region)(_.region)
+                  .credentialsProvider(commonConfig.credentialsProvider)
 
-                commonConfig.commonClientConfig match {
-                  case Some(commonClientConfig) =>
-                    val clientOverrideBuilderHelper
-                        : BuilderHelper[ClientOverrideConfiguration] =
-                      BuilderHelper.apply
-                    import clientOverrideBuilderHelper._
-                    val overrideBuilder =
-                      ClientOverrideConfiguration
-                        .builder()
-                        .headers(
-                          commonClientConfig.extraHeaders
-                            .map { case (key, value) => key -> value.asJava }
-                            .toMap
-                            .asJava
-                        )
-                        .optionallyWith(commonClientConfig.retryPolicy)(
-                          _.retryPolicy
-                        )
-                        .optionallyWith(
-                          commonClientConfig.apiCallTimeout
-                            .map(zio.duration.Duration.fromScala)
-                        )(_.apiCallTimeout)
-                        .optionallyWith(
-                          commonClientConfig.apiCallAttemptTimeout
-                            .map(zio.duration.Duration.fromScala)
-                        )(_.apiCallAttemptTimeout)
-                        .optionallyWith(commonClientConfig.defaultProfileName)(
-                          _.defaultProfileName
-                        )
+              commonConfig.commonClientConfig match {
+                case Some(commonClientConfig) =>
+                  val clientOverrideBuilderHelper: BuilderHelper[ClientOverrideConfiguration] =
+                    BuilderHelper.apply
+                  import clientOverrideBuilderHelper._
+                  val overrideBuilder =
+                    ClientOverrideConfiguration
+                      .builder()
+                      .headers(
+                        commonClientConfig.extraHeaders.map { case (key, value) => key -> value.asJava }.toMap.asJava
+                      )
+                      .optionallyWith(commonClientConfig.retryPolicy)(
+                        _.retryPolicy
+                      )
+                      .optionallyWith(
+                        commonClientConfig.apiCallTimeout
+                          .map(zio.duration.Duration.fromScala)
+                      )(_.apiCallTimeout)
+                      .optionallyWith(
+                        commonClientConfig.apiCallAttemptTimeout
+                          .map(zio.duration.Duration.fromScala)
+                      )(_.apiCallAttemptTimeout)
+                      .optionallyWith(commonClientConfig.defaultProfileName)(
+                        _.defaultProfileName
+                      )
 
-                    b0.overrideConfiguration(overrideBuilder.build())
-                  case None =>
-                    b0
-                }
+                  b0.overrideConfiguration(overrideBuilder.build())
+                case None =>
+                  b0
               }
             }
-
-            override def configureHttpClient[
-                Client,
-                Builder <: AwsAsyncClientBuilder[Builder, Client]
-            ](builder: Builder): Task[Builder] =
-              ZIO.succeed(builder.httpClient(httpClient.client))
           }
+
+          override def configureHttpClient[
+            Client,
+            Builder <: AwsAsyncClientBuilder[Builder, Client]
+          ](builder: Builder): Task[Builder] =
+            ZIO.succeed(builder.httpClient(httpClient.client))
+        }
       }
 
   object descriptors {
@@ -178,39 +175,36 @@ package object config {
       (string("accessKeyId") ?? "AWS access key ID" |@|
         string("secretAccessKey") ?? "AWS secret access key")(
         AwsBasicCredentials.create,
-        (creds: AwsCredentials) =>
-          Some((creds.accessKeyId(), creds.secretAccessKey()))
+        (creds: AwsCredentials) => Some((creds.accessKeyId(), creds.secretAccessKey()))
       )
 
-    val credentialsProvider: ConfigDescriptor[AwsCredentialsProvider] = {
-      val defaultCredentialsProvider: ConfigDescriptor[AwsCredentialsProvider] =
-        string.xmapEither(
-          s =>
-            if (s == "default") Right(DefaultCredentialsProvider.create())
-            else Left("Not 'default'"),
-          {
-            case _: DefaultCredentialsProvider => Right("default")
-            case _                             => Left("Unsupported credentials provider")
-          }
-        )
-      val anonymousCredentialsProvider
-          : ConfigDescriptor[AwsCredentialsProvider] = string.xmapEither(
-        s =>
-          if (s == "anonymous") Right(AnonymousCredentialsProvider.create())
-          else Left("Not 'anonymous'"),
-        {
-          case _: AnonymousCredentialsProvider => Right("anonymous")
-          case _                               => Left("Unsupported credentials provider")
+    sealed trait CredentialsProvider {
+      def toAwsCredentialsProvider: Task[AwsCredentialsProvider] =
+        this match {
+          case Default   => Task(DefaultCredentialsProvider.create())
+          case Anonymous => Task(AnonymousCredentialsProvider.create())
+          case StaticProvider(accessKeyId, secretAccessKey) =>
+            Task(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKeyId, secretAccessKey)))
+
         }
-      )
-      val staticCredentialsProvider: ConfigDescriptor[AwsCredentialsProvider] =
-        awsCredentials.xmap(
-          creds => StaticCredentialsProvider.create(creds),
-          _.resolveCredentials()
-        )
-
-      defaultCredentialsProvider <> anonymousCredentialsProvider <> staticCredentialsProvider
     }
+
+    import zio.config.magnolia._, zio.config.magnolia.DeriveConfigDescriptor.descriptor
+
+    object CredentialsProvider {
+      @name("default")
+      case object Default extends CredentialsProvider
+
+      @name("anonymous")
+      case object Anonymous extends CredentialsProvider
+      case class StaticProvider(
+        @describe("AWS access key ID") accessKeyId: String,
+        @describe("AWS secret access key") secretAccessKey: String
+      ) extends CredentialsProvider
+    }
+
+    val credentialsProvider: ConfigDescriptor[CredentialsProvider] =
+      descriptor[CredentialsProvider]
 
     val rawHeader: ConfigDescriptor[(String, List[String])] =
       (string("name") ?? "Header name" |@|
@@ -222,52 +216,49 @@ package object config {
         _.toList
       )
 
+    sealed trait AwsRetryPolicy {
+      def toAwsRetryPolicy: Task[RetryPolicy] = this match {
+        case Default  => Task(RetryPolicy.defaultRetryPolicy())
+        case Legacy   => Task(RetryPolicy.forRetryMode(RetryMode.LEGACY))
+        case NoPolicy => Task(RetryPolicy.forRetryMode(RetryMode.STANDARD))
+        case Standard => Task(RetryPolicy.none())
+      }
+    }
+
+    object AwsRetryPolicy {
+      @name("default")
+      case object Default extends AwsRetryPolicy
+
+      @name("legacy")
+      case object Legacy extends AwsRetryPolicy
+
+      @name("standard")
+      case object Standard extends AwsRetryPolicy
+
+      @name("none")
+      case object NoPolicy extends AwsRetryPolicy
+    }
+
+    sealed trait AwsRetryMode {
+      def toAwsRetryMode: RetryMode = this match {
+        case Legacy   => RetryMode.LEGACY
+        case Standard => RetryMode.STANDARD
+        case Default  => RetryMode.defaultRetryMode()
+      }
+    }
+
+    object AwsRetryMode {
+      @name("legacy")
+      case object Legacy extends AwsRetryMode
+
+      @name("standard")
+      case object Standard extends AwsRetryMode
+
+      @name("default")
+      case object Default extends AwsRetryMode
+    }
+
     val retryPolicy: ConfigDescriptor[RetryPolicy] = {
-      val default: ConfigDescriptor[RetryPolicy] = string.xmapEither(
-        s =>
-          if (s == "default") Right(RetryPolicy.defaultRetryPolicy())
-          else Left("Not 'default'"),
-        (p: RetryPolicy) =>
-          if (p == RetryPolicy.defaultRetryPolicy()) Right("default")
-          else Left("Not the default retry policy")
-      )
-      val legacy: ConfigDescriptor[RetryPolicy] = string.xmapEither(
-        s =>
-          if (s == "legacy") Right(RetryPolicy.forRetryMode(RetryMode.LEGACY))
-          else Left("Not 'legacy'"),
-        (p: RetryPolicy) =>
-          if (p == RetryPolicy.forRetryMode(RetryMode.LEGACY)) Right("legacy")
-          else Left("Not the legacy retry policy")
-      )
-      val standard: ConfigDescriptor[RetryPolicy] = string.xmapEither(
-        s =>
-          if (s == "standard")
-            Right(RetryPolicy.forRetryMode(RetryMode.STANDARD))
-          else Left("Not 'standard'"),
-        (p: RetryPolicy) =>
-          if (p == RetryPolicy.forRetryMode(RetryMode.STANDARD))
-            Right("standard")
-          else Left("Not the standard retry policy")
-      )
-      val none: ConfigDescriptor[RetryPolicy] = string.xmapEither(
-        s => if (s == "none") Right(RetryPolicy.none()) else Left("Not 'none'"),
-        (p: RetryPolicy) =>
-          if (p == RetryPolicy.none()) Right("none")
-          else Left("Not the 'none' retry policy")
-      )
-      val retryMode: ConfigDescriptor[RetryMode] = string.xmapEither(
-        {
-          case "legacy"   => Right(RetryMode.LEGACY)
-          case "standard" => Right(RetryMode.STANDARD)
-          case "default"  => Right(RetryMode.defaultRetryMode())
-          case s: String =>
-            Left(s"Invalid retry mode '$s'. Use legacy, standard or default'")
-        },
-        {
-          case RetryMode.LEGACY   => Right("legacy")
-          case RetryMode.STANDARD => Right("standard")
-        }
-      )
       val backoffStrategy: ConfigDescriptor[BackoffStrategy] = {
         val fullJitter: ConfigDescriptor[BackoffStrategy] =
           nested("fullJitter")(
@@ -279,8 +270,7 @@ package object config {
                   .maxBackoffTime(
                     zio.duration.Duration.fromScala(maxBackoffTime)
                   )
-                  .build(),
-              {
+                  .build(), {
                 case bs: FullJitterBackoffStrategy =>
                   Some(
                     (
@@ -302,8 +292,7 @@ package object config {
                   .maxBackoffTime(
                     zio.duration.Duration.fromScala(maxBackoffTime)
                   )
-                  .build(),
-              {
+                  .build(), {
                 case bs: EqualJitterBackoffStrategy =>
                   Some(
                     (
@@ -315,18 +304,19 @@ package object config {
               }
             )
           )
+
         val fixed: ConfigDescriptor[BackoffStrategy] =
           nested("fixed")(
             duration("backoff")(
               backoff =>
                 FixedDelayBackoffStrategy
-                  .create(zio.duration.Duration.fromScala(backoff)),
-              {
+                  .create(zio.duration.Duration.fromScala(backoff)), {
                 case bs: FixedDelayBackoffStrategy =>
                   Some(
                     bs.computeDelayBeforeNextRetry(
-                      RetryPolicyContext.builder().build()
-                    ).asScala
+                        RetryPolicyContext.builder().build()
+                      )
+                      .asScala
                   )
                 case _ => None
               }
@@ -335,54 +325,71 @@ package object config {
         fullJitter <> equalJitter <> fixed
       }
 
-      def retryCondition: ConfigDescriptor[RetryCondition] = {
-        val default: ConfigDescriptor[RetryCondition] = string.xmapEither(
-          s =>
-            if (s == "default") Right(RetryCondition.defaultRetryCondition())
-            else Left("Not 'default'"),
-          (c: RetryCondition) =>
-            if (c == RetryCondition.defaultRetryCondition()) Right("default")
-            else Left("Not the default retry condition")
-        )
-        val none: ConfigDescriptor[RetryCondition] = string.xmapEither(
-          s =>
-            if (s == "none") Right(RetryCondition.none())
-            else Left("Not 'none'"),
-          (c: RetryCondition) =>
-            if (c == RetryCondition.none()) Right("none")
-            else Left("Not the 'none' retry condition")
-        )
-        val or: ConfigDescriptor[RetryCondition] =
-          nested("or")(
-            list(retryCondition)
-          )(
-            lst => OrRetryCondition.create(lst: _*),
-            _ => None // NOTE: Cannot extract conditions without reflection
-          )
-        val and: ConfigDescriptor[RetryCondition] =
-          nested("and")(
-            list(retryCondition)
-          )(
-            lst => AndRetryCondition.create(lst: _*),
-            _ => None // NOTE: Cannot extract conditions without reflection
-          )
-
-        val maxNumberOfRetries: ConfigDescriptor[RetryCondition] =
-          int("maxNumberOfRetries")(
-            n => MaxNumberOfRetriesCondition.create(n),
-            _ => None // NOTE: Cannot extract conditions without reflection
-          )
-        val retryOn: ConfigDescriptor[RetryCondition] =
-          string("retryOn")(
-            {
-              case "clockSkew"  => RetryOnClockSkewCondition.create()
-              case "throttling" => RetryOnThrottlingCondition.create()
-            },
-            {
-              case _: RetryOnClockSkewCondition  => Some("clockSkew")
-              case _: RetryOnThrottlingCondition => Some("throttling")
+      sealed trait AwsRetryCondition {
+        def toRetryCondition: RetryCondition = this match {
+          case AwsRetryCondition.Default              => RetryCondition.defaultRetryCondition()
+          case AwsRetryCondition.NoRetry              => RetryCondition.defaultRetryCondition()
+          case AwsRetryCondition.Or(lst)              => OrRetryCondition.create(lst: _*)
+          case AwsRetryCondition.And(lst)             => AndRetryCondition.create(lst: _*)
+          case AwsRetryCondition.MaxRetryCondition(n) => MaxNumberOfRetriesCondition.create(n)
+          case AwsRetryCondition.RetryOn(strategy) =>
+            strategy match {
+              case ClockSkew  => RetryOnClockSkewCondition.create()
+              case Throttling => RetryOnThrottlingCondition.create()
             }
-          )
+        }
+      }
+
+      object AwsRetryCondition {
+        val config = descriptor[AwsRetryCondition].desc
+
+        @name("default")
+        case object Default extends AwsRetryCondition
+
+        @name("none")
+        case object NoRetry extends AwsRetryCondition
+
+        @name("or")
+        case class Or(or: List[AwsRetryCondition]) extends AwsRetryCondition
+
+        object Or {
+          import zio.config.magnolia.DeriveConfigDescriptor.Descriptor
+          implicit val orRetryCondition: Descriptor[Or] =
+            Descriptor(list(AwsRetryCondition.config))(Or.apply, Or.unapply)
+        }
+
+        @name("and")
+        case class And(or: List[AwsRetryCondition]) extends AwsRetryCondition
+
+        object And {
+          import zio.config.magnolia.DeriveConfigDescriptor.Descriptor
+          implicit val andRetryCondition: Descriptor[And] =
+            Descriptor(list(AwsRetryCondition.config))(And.apply, And.unapply)
+        }
+        @name("maxNumberOfRetries")
+        case class MaxRetryCondition(n: Int) extends AwsRetryCondition
+
+        object MaxRetryCondition {
+          implicit val max: Descriptor[MaxRetryCondition] =
+            Descriptor(int.xmap(MaxRetryCondition.apply, AMaxRetryCondition.unapply))
+        }
+
+        @name("retryOn")
+        case class RetryOn(strategy: RetryOn.AwsRetryOnStrategy) extends AwsRetryCondition
+
+        object RetryOn {
+          sealed trait AwsRetryOnStrategy
+
+          object AwsRetryOn {
+            @name("clockSkew")
+            case object ClockSkew extends AwsRetryOnStrategy
+            @name("throttling")
+            case object Throttling extends AwsRetryOnStrategy
+          }
+        }
+      }
+
+      def retryCondition: ConfigDescriptor[RetryCondition] = {
         val retryOnErrorCodes: ConfigDescriptor[RetryCondition] =
           (listOrSingleton("retryOnErrorCode")(string))(
             codes => RetryOnErrorCodeCondition.create(codes.toSet.asJava),
@@ -436,8 +443,7 @@ package object config {
                       .throttlingExceptionCost(throttlingCost)
                       .defaultExceptionCost(cost)
                       .build(),
-                  (_: TokenBucketExceptionCostFunction) =>
-                    None // NOTE: Cannot extract conditions without reflection
+                  (_: TokenBucketExceptionCostFunction) => None // NOTE: Cannot extract conditions without reflection
                 )
               ))(
               (size, costFn) =>
@@ -472,13 +478,13 @@ package object config {
             retryCondition
           ) ?? "Condition deciding throttling")(
           (
-              mode,
-              numRetries,
-              additionalRetryConditionsAllowed,
-              backoffStrategy,
-              throttlingBackoffStrategy,
-              retryCondition,
-              retryCapacityCondition
+            mode,
+            numRetries,
+            additionalRetryConditionsAllowed,
+            backoffStrategy,
+            throttlingBackoffStrategy,
+            retryCondition,
+            retryCapacityCondition
           ) =>
             RetryPolicy
               .builder(mode)
@@ -539,4 +545,10 @@ package object config {
       )
   }
 
+}
+
+object X extends App {
+  import zio.config._
+
+  println(generateDocs(config.descriptors.commonAwsConfig).toTable.asGithubFlavouredMarkdown)
 }
